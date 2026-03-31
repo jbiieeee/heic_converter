@@ -1,4 +1,4 @@
-# 🌌 Glassmorphism HEIC Converter
+# 🌌 HEIC/HEIF Converter
 
 A fast, private, and beautifully designed client-side web application that converts Apple and Samsung High-Efficiency Image files (`.heic` / `.heif`) into universally compatible `JPEG` or `PNG` formats. 
 
