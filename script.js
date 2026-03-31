@@ -4,68 +4,120 @@ document.addEventListener('DOMContentLoaded', () => {
     const formatSelect = document.getElementById('format-select');
     const loadingDiv = document.getElementById('loading');
     const resultArea = document.getElementById('result-area');
-    const previewImg = document.getElementById('preview-img');
-    const downloadLink = document.getElementById('download-link');
+    const previewContainer = document.getElementById('preview-container');
+    const dropZone = document.getElementById('drop-zone');
 
-    let selectedFile = null;
+    let selectedFiles = [];
 
-    // Listen for file selection
-    heicInput.addEventListener('change', (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            selectedFile = file;
-            convertBtn.disabled = false; // Enable the convert button
-            resultArea.classList.add('hidden'); // Hide previous results
-        } else {
-            selectedFile = null;
-            convertBtn.disabled = true;
-        }
+    // --- Drag and Drop Logic ---
+    
+    // Prevent default browser behavior (opening the file in a new tab)
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
     });
 
-    // Listen for convert button click
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    // Highlight drop zone when dragging over it
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+    });
+
+    // Handle dropped files
+    dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        handleFiles(dt.files);
+    });
+
+    // Handle files selected via the click input
+    heicInput.addEventListener('change', (e) => {
+        handleFiles(e.target.files);
+    });
+
+    // Process the files into our array
+    function handleFiles(files) {
+        // Filter out non-HEIC/HEIF files to prevent errors
+        selectedFiles = Array.from(files).filter(file => 
+            file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')
+        );
+
+        if (selectedFiles.length > 0) {
+            convertBtn.disabled = false;
+            convertBtn.textContent = `Convert ${selectedFiles.length} Image(s)`;
+            resultArea.classList.add('hidden'); 
+            previewContainer.innerHTML = ''; // Clear old previews
+        } else {
+            convertBtn.disabled = true;
+            convertBtn.textContent = 'Convert Image';
+        }
+    }
+
+    // --- Conversion Logic ---
+
     convertBtn.addEventListener('click', async () => {
-        if (!selectedFile) return;
+        if (selectedFiles.length === 0) return;
 
         const targetFormat = formatSelect.value;
         const extension = targetFormat === 'image/jpeg' ? 'jpg' : 'png';
 
-        // Update UI to show loading state
+        // Set loading state
         convertBtn.disabled = true;
         loadingDiv.classList.remove('hidden');
         resultArea.classList.add('hidden');
+        previewContainer.innerHTML = ''; 
 
         try {
-            // This is where the magic happens using heic2any
-            const convertedBlob = await heic2any({
-                blob: selectedFile,
-                toType: targetFormat,
-                quality: 0.8 // Optional: adjusts JPEG quality (0.0 to 1.0)
-            });
+            // Loop through all selected files
+            for (const file of selectedFiles) {
+                const convertedBlob = await heic2any({
+                    blob: file,
+                    toType: targetFormat,
+                    quality: 0.8 // Adjusts JPEG quality (0.0 to 1.0)
+                });
 
-            // heic2any might return an array if the HEIC has multiple images (like live photos). 
-            // We just grab the first one.
-            const blobToUse = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+                // heic2any might return an array for burst/live photos, grab the first frame
+                const blobToUse = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+                const objectUrl = URL.createObjectURL(blobToUse);
+                const originalName = file.name.split('.')[0];
 
-            // Create a temporary URL for the new image blob
-            const objectUrl = URL.createObjectURL(blobToUse);
+                // Create a card for the grid
+                const card = document.createElement('div');
+                card.className = 'image-card';
 
-            // Update the UI with the result
-            previewImg.src = objectUrl;
-            
-            // Set up the download link
-            const originalName = selectedFile.name.split('.')[0];
-            downloadLink.href = objectUrl;
-            downloadLink.download = `${originalName}_converted.${extension}`;
+                const img = document.createElement('img');
+                img.src = objectUrl;
+                img.alt = originalName;
 
-            // Hide loader, show result
+                const downloadLink = document.createElement('a');
+                downloadLink.href = objectUrl;
+                downloadLink.download = `${originalName}_converted.${extension}`;
+                downloadLink.className = 'download-btn';
+                downloadLink.textContent = 'Download';
+                
+                // Append elements to the card, then to the grid container
+                card.appendChild(img);
+                card.appendChild(downloadLink);
+                previewContainer.appendChild(card);
+            }
+
+            // Hide loader, show results
             loadingDiv.classList.add('hidden');
             resultArea.classList.remove('hidden');
 
         } catch (error) {
-            console.error("Error converting file:", error);
-            alert("There was an error converting your file. Please make sure it is a valid HEIC image.");
+            console.error("Error converting files:", error);
+            alert("There was an error converting one or more files. Ensure they are valid HEIC/HEIF images.");
             loadingDiv.classList.add('hidden');
         } finally {
+            // Reset button state
             convertBtn.disabled = false;
         }
     });
