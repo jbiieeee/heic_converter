@@ -2,7 +2,7 @@
     --bg-dark: #0f172a;
     --text-light: #f8fafc;
     --text-muted: #94a3b8;
-    --accent-gradient: linear-gradient(135deg, #8b5cf6, #d946ef);
+    --accent-gradient: linear-gradient(135deg, #5ce4f6, #4657ef);
     --success-gradient: linear-gradient(135deg, #10b981, #059669);
     --glass-bg: rgba(30, 41, 59, 0.7);
     --glass-border: rgba(255, 255, 255, 0.1);
@@ -34,14 +34,14 @@ body {
 .shape-1 {
     width: 400px;
     height: 400px;
-    background: #8b5cf6;
+    background: #5cf6f6;
     top: -100px;
     left: -100px;
 }
 .shape-2 {
     width: 350px;
     height: 350px;
-    background: #d946ef;
+    background: #465fef;
     bottom: -50px;
     right: -50px;
     animation-delay: -5s;
@@ -85,7 +85,7 @@ body {
 .upload-area {
     margin: 1.5rem 0;
     padding: 2.5rem 1rem;
-    border: 2px dashed rgba(139, 92, 246, 0.5);
+    border: 2px dashed rgba(92, 228, 246, 0.5);
     border-radius: 16px;
     background: rgba(15, 23, 42, 0.4);
     transition: all 0.3s ease;
@@ -97,7 +97,7 @@ body {
 
 .upload-area.dragover {
     background: rgba(139, 92, 246, 0.1);
-    border-color: #d946ef;
+    border-color: #46cdef;
     transform: scale(1.02);
 }
 
@@ -142,11 +142,11 @@ input[type="file"] {
     cursor: pointer;
     transition: all 0.3s ease;
     width: 100%;
-    box-shadow: 0 10px 20px -5px rgba(139, 92, 246, 0.4);
+    box-shadow: 0 10px 20px -5px rgba(92, 102, 246, 0.4);
 }
 .neon-btn:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 15px 25px -5px rgba(217, 70, 239, 0.5);
+    box-shadow: 0 15px 25px -5px rgba(70, 95, 239, 0.5);
 }
 .neon-btn:disabled {
     background: #334155;
@@ -173,12 +173,12 @@ input[type="file"] {
     border-top: 1px solid var(--glass-border);
     padding-top: 1.5rem;
 }
-#result-area h3 { color: #d946ef; font-weight: 600; margin-bottom: 1.5rem; }
+#result-area h3 { color: #46c8ef; font-weight: 600; margin-bottom: 1.5rem; }
 
 /* Spinner */
 .spinner {
     border: 4px solid rgba(255,255,255,0.1);
-    border-top: 4px solid #d946ef;
+    border-top: 4px solid #46b1ef;
     border-radius: 50%;
     width: 40px;
     height: 40px;
