@@ -10,11 +10,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadAllBtn = document.getElementById('download-all-btn');
 
     let selectedFiles = [];
-    let convertedFilesData = []; 
+    let convertedFilesData = [];
 
-    // --- Drag and Drop Logic ---
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        window.addEventListener(eventName, preventDefaults, false);
+    const CONCURRENCY_LIMIT = 2;
+
+    // --- Drag & Drop ---
+    ['dragenter','dragover','dragleave','drop'].forEach(e => {
+        window.addEventListener(e, preventDefaults, false);
     });
 
     function preventDefaults(e) {
@@ -22,157 +24,138 @@ document.addEventListener('DOMContentLoaded', () => {
         e.stopPropagation();
     }
 
-    ['dragenter', 'dragover'].forEach(eventName => {
-        dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+    ['dragenter','dragover'].forEach(e => {
+        dropZone.addEventListener(e, () => dropZone.classList.add('dragover'));
     });
 
-    ['dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+    ['dragleave','drop'].forEach(e => {
+        dropZone.addEventListener(e, () => dropZone.classList.remove('dragover'));
     });
 
-    dropZone.addEventListener('drop', (e) => {
-        handleFiles(e.dataTransfer.files);
-    });
-
-    heicInput.addEventListener('change', (e) => {
-        handleFiles(e.target.files);
-    });
+    dropZone.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
+    heicInput.addEventListener('change', e => handleFiles(e.target.files));
 
     function handleFiles(files) {
-        selectedFiles = Array.from(files).filter(file => {
-            const name = file.name.toLowerCase();
-            return name.endsWith('.heic') || name.endsWith('.heif');
-        });
+        selectedFiles = Array.from(files).filter(f =>
+            f.name.toLowerCase().endsWith('.heic') || f.name.toLowerCase().endsWith('.heif')
+        );
 
         if (selectedFiles.length > 0) {
             convertBtn.disabled = false;
             convertBtn.textContent = `Convert ${selectedFiles.length} Image(s)`;
-            resultArea.classList.add('hidden'); 
-            previewContainer.innerHTML = ''; 
-            downloadAllBtn.classList.add('hidden'); 
+            resultArea.classList.add('hidden');
+            previewContainer.innerHTML = '';
+            downloadAllBtn.classList.add('hidden');
         } else {
             convertBtn.disabled = true;
             convertBtn.textContent = 'Select Images to Convert';
         }
     }
 
-    // --- BATCH PROCESSING LOGIC (The Fix for Speed/Freezing) ---
+    // --- Convert using Workers ---
     convertBtn.addEventListener('click', async () => {
         if (selectedFiles.length === 0) return;
 
-        const targetFormat = formatSelect.value;
-        const extension = targetFormat === 'image/jpeg' ? 'jpg' : 'png';
+        const format = formatSelect.value;
+        const extension = format === 'image/jpeg' ? 'jpg' : 'png';
 
         convertBtn.disabled = true;
         loadingDiv.classList.remove('hidden');
-        resultArea.classList.add('hidden');
-        previewContainer.innerHTML = ''; 
-        convertedFilesData = []; 
+        previewContainer.innerHTML = '';
+        convertedFilesData = [];
 
-        try {
-            let completedCount = 0;
-            loadingText.textContent = `Converted 0 of ${selectedFiles.length}...`;
+        let completed = 0;
+        loadingText.textContent = `Converted 0 of ${selectedFiles.length}...`;
 
-            // Max number of files to process at the exact same time
-            // 3 is the sweet spot. Too high = browser crash. Too low = slow.
-            const CONCURRENCY_LIMIT = 3; 
+        const queue = [...selectedFiles];
+        const workers = [];
 
-            // Function to process a single file
-            const processFile = async (file) => {
-                const convertedBlob = await heic2any({
-                    blob: file,
-                    toType: targetFormat,
-                    quality: 0.8 
+        function startWorker(file) {
+            return new Promise((resolve) => {
+                const worker = new Worker('worker.js');
+
+                worker.postMessage({
+                    file: file,
+                    format: format,
+                    quality: 0.6
                 });
 
-                const blobToUse = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
-                const objectUrl = URL.createObjectURL(blobToUse);
-                const originalName = file.name.split('.')[0];
-                const fullFileName = `${originalName}_converted.${extension}`;
+                worker.onmessage = (e) => {
+                    const data = e.data;
 
-                convertedFilesData.push({ name: fullFileName, blob: blobToUse });
+                    if (data.success) {
+                        const blob = data.blob;
+                        const url = URL.createObjectURL(blob);
+                        const name = file.name.split('.')[0] + '_converted.' + extension;
 
-                const card = document.createElement('div');
-                card.className = 'image-card';
+                        convertedFilesData.push({ name, blob });
 
-                const img = document.createElement('img');
-                img.src = objectUrl;
-                img.alt = originalName;
+                        const card = document.createElement('div');
+                        card.className = 'image-card';
 
-                const downloadLink = document.createElement('a');
-                downloadLink.href = objectUrl;
-                downloadLink.download = fullFileName;
-                downloadLink.className = 'download-btn';
-                downloadLink.textContent = 'Download';
-                
-                card.appendChild(img);
-                card.appendChild(downloadLink);
+                        const img = document.createElement('img');
+                        img.src = url;
 
-                completedCount++;
-                loadingText.textContent = `Converted ${completedCount} of ${selectedFiles.length}...`;
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = name;
+                        link.textContent = 'Download';
+                        link.className = 'download-btn';
 
-                // Add to UI immediately as it finishes
-                previewContainer.appendChild(card); 
-            };
+                        card.appendChild(img);
+                        card.appendChild(link);
+                        previewContainer.appendChild(card);
+                    }
 
-            // Queue system to process in batches
-            for (let i = 0; i < selectedFiles.length; i += CONCURRENCY_LIMIT) {
-                // Grab a chunk of 3 files
-                const chunk = selectedFiles.slice(i, i + CONCURRENCY_LIMIT);
-                // Process those 3 at the same time and wait for them to finish
-                await Promise.all(chunk.map(file => processFile(file)));
+                    completed++;
+                    loadingText.textContent = `Converted ${completed} of ${selectedFiles.length}...`;
+
+                    worker.terminate();
+                    resolve();
+                };
+            });
+        }
+
+        // run workers with limit
+        const running = [];
+
+        for (const file of queue) {
+            const p = startWorker(file);
+            running.push(p);
+
+            if (running.length >= CONCURRENCY_LIMIT) {
+                await Promise.race(running);
+                running.splice(running.findIndex(r => r === p), 1);
             }
+        }
 
-            loadingDiv.classList.add('hidden');
-            resultArea.classList.remove('hidden');
-            convertBtn.textContent = `Convert ${selectedFiles.length} Image(s)`;
+        await Promise.all(running);
 
-            if (convertedFilesData.length > 1) {
-                downloadAllBtn.classList.remove('hidden');
-            }
+        loadingDiv.classList.add('hidden');
+        resultArea.classList.remove('hidden');
+        convertBtn.disabled = false;
 
-        } catch (error) {
-            console.error("Error converting files:", error);
-            alert("There was an error. If a file is corrupted or too massive, it may fail.");
-            loadingDiv.classList.add('hidden');
-        } finally {
-            convertBtn.disabled = false;
-            loadingText.textContent = "Processing...";
+        if (convertedFilesData.length > 1) {
+            downloadAllBtn.classList.remove('hidden');
         }
     });
 
-    // --- ZIP Logic ---
+    // --- ZIP ---
     downloadAllBtn.addEventListener('click', async () => {
-        if (convertedFilesData.length === 0) return;
+        const zip = new JSZip();
 
-        const originalText = downloadAllBtn.textContent;
-        downloadAllBtn.textContent = "Zipping files...";
-        downloadAllBtn.disabled = true;
+        convertedFilesData.forEach(f => {
+            zip.file(f.name, f.blob);
+        });
 
-        try {
-            const zip = new JSZip();
+        const blob = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(blob);
 
-            convertedFilesData.forEach(fileData => {
-                zip.file(fileData.name, fileData.blob);
-            });
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "Converted_Images.zip";
+        a.click();
 
-            const zipContent = await zip.generateAsync({ type: "blob" });
-            const zipUrl = URL.createObjectURL(zipContent);
-            
-            const tempLink = document.createElement('a');
-            tempLink.href = zipUrl;
-            tempLink.download = "Converted_Images.zip";
-            document.body.appendChild(tempLink);
-            tempLink.click();
-            document.body.removeChild(tempLink);
-            
-            URL.revokeObjectURL(zipUrl);
-        } catch (error) {
-            console.error("Error creating ZIP:", error);
-            alert("Failed to zip the files.");
-        } finally {
-            downloadAllBtn.textContent = originalText;
-            downloadAllBtn.disabled = false;
-        }
+        URL.revokeObjectURL(url);
     });
 });
