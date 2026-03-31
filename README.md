@@ -30,12 +30,4 @@ Because this app does not rely on a backend server or a build pipeline, setup is
 3. Double-click `index.html` to open it in any modern web browser.
 4. Drag and drop your `.heic` files, select your output format, and click **Convert**.
 
-## ⏱️ A Note on Conversion Speed
 
-HEIC files are essentially single frames of highly compressed H.265 video. Decoding this compression requires a massive amount of mathematical processing. 
-
-Unlike major cloud-based converters that upload your photos to powerful server farms, this application runs entirely on your local machine using JavaScript. While this guarantees absolute privacy, the conversion speed is directly tied to the processing power of your specific computer or smartphone. 
-
-## 📝 License
-
-This project is open-source and available under the [MIT License](LICENSE).
