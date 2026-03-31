@@ -1,6 +1,6 @@
 # 🌌 HEIC/HEIF Converter
 
-A fast, private, and beautifully designed client-side web application that converts Apple and Samsung High-Efficiency Image files (`.heic` / `.heif`) into universally compatible `JPEG` or `PNG` formats. 
+A client-side web application that converts Apple and Samsung High-Efficiency Image files (`.heic` / `.heif`) into universally compatible `JPEG` or `PNG` formats. 
 
 Built entirely with HTML, CSS, and Vanilla JavaScript, this tool processes everything directly inside your web browser. **No images are ever uploaded to a server**, ensuring 100% data privacy.
 
