@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedFiles = [];
     let convertedFilesData = [];
 
+    // The max number of background workers to run at exactly the same time.
     const CONCURRENCY_LIMIT = 2;
 
     // --- Drag & Drop ---
@@ -52,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Convert using Workers ---
+    // --- Convert using Web Workers ---
     convertBtn.addEventListener('click', async () => {
         if (selectedFiles.length === 0) return;
 
@@ -68,10 +69,10 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingText.textContent = `Converted 0 of ${selectedFiles.length}...`;
 
         const queue = [...selectedFiles];
-        const workers = [];
 
         function startWorker(file) {
             return new Promise((resolve) => {
+                // Point this to your new worker.js file
                 const worker = new Worker('worker.js');
 
                 worker.postMessage({
@@ -110,37 +111,44 @@ document.addEventListener('DOMContentLoaded', () => {
                     completed++;
                     loadingText.textContent = `Converted ${completed} of ${selectedFiles.length}...`;
 
+                    // Kill the worker thread to free up memory
                     worker.terminate();
                     resolve();
                 };
             });
         }
 
-        // run workers with limit
-        const running = [];
+        // --- Fixed Concurrent Queue logic using a Set ---
+        const running = new Set();
 
         for (const file of queue) {
-            const p = startWorker(file);
-            running.push(p);
+            // Start the worker and tell it to delete itself from the Set when finished
+            const p = startWorker(file).finally(() => running.delete(p));
+            
+            // Add the promise to our tracker
+            running.add(p);
 
-            if (running.length >= CONCURRENCY_LIMIT) {
+            // If we hit our concurrency limit, pause the loop until at least one finishes
+            if (running.size >= CONCURRENCY_LIMIT) {
                 await Promise.race(running);
-                running.splice(running.findIndex(r => r === p), 1);
             }
         }
 
+        // Wait for the final trailing workers to finish up
         await Promise.all(running);
 
+        // Reset UI state
         loadingDiv.classList.add('hidden');
         resultArea.classList.remove('hidden');
         convertBtn.disabled = false;
 
+        // Show "Download All" button if multiple files were converted
         if (convertedFilesData.length > 1) {
             downloadAllBtn.classList.remove('hidden');
         }
     });
 
-    // --- ZIP ---
+    // --- ZIP and Download All Logic ---
     downloadAllBtn.addEventListener('click', async () => {
         const zip = new JSZip();
 
@@ -148,14 +156,28 @@ document.addEventListener('DOMContentLoaded', () => {
             zip.file(f.name, f.blob);
         });
 
-        const blob = await zip.generateAsync({ type: "blob" });
-        const url = URL.createObjectURL(blob);
+        const originalText = downloadAllBtn.textContent;
+        downloadAllBtn.textContent = "Zipping files...";
+        downloadAllBtn.disabled = true;
 
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = "Converted_Images.zip";
-        a.click();
+        try {
+            const blob = await zip.generateAsync({ type: "blob" });
+            const url = URL.createObjectURL(blob);
 
-        URL.revokeObjectURL(url);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "Converted_Images.zip";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error("Error creating ZIP:", error);
+            alert("Failed to zip the files.");
+        } finally {
+            downloadAllBtn.textContent = originalText;
+            downloadAllBtn.disabled = false;
+        }
     });
 });
