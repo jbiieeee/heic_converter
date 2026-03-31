@@ -227,3 +227,21 @@ input[type="file"] {
     box-sizing: border-box;
 }
 .download-btn:hover { background: rgba(255, 255, 255, 0.2); }
+
+/* File Size Text */
+.file-size-info {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin: 0.25rem 0 0.75rem 0;
+    text-align: center;
+    line-height: 1.4;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 0.4rem;
+    border-radius: 6px;
+    width: 100%;
+    box-sizing: border-box;
+}
+.size-highlight {
+    color: #10b981; /* Green color for the new size */
+    font-weight: 600;
+}

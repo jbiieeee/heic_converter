@@ -12,6 +12,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedFiles = [];
     let convertedFilesData = []; 
 
+    // Helper function to format bytes into KB, MB, etc.
+    function formatBytes(bytes, decimals = 2) {
+        if (!+bytes) return '0 Bytes';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+    }
+
     // --- Drag and Drop Logic ---
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
         window.addEventListener(eventName, preventDefaults, false);
@@ -73,11 +83,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let completedCount = 0;
             loadingText.textContent = `Converted 0 of ${selectedFiles.length}...`;
 
-            // Max number of files to process at the exact same time
-            // 3 or 4 is the sweet spot for maximum speed without crashing.
             const CONCURRENCY_LIMIT = 4; 
 
-            // Function to process a single file directly on the main thread
             const processFile = async (file) => {
                 const convertedBlob = await heic2any({
                     blob: file,
@@ -90,8 +97,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const originalName = file.name.split('.')[0];
                 const fullFileName = `${originalName}_converted.${extension}`;
 
-                // Save data for the ZIP file later
                 convertedFilesData.push({ name: fullFileName, blob: blobToUse });
+
+                // Format the sizes
+                const originalSizeText = formatBytes(file.size);
+                const newSizeText = formatBytes(blobToUse.size);
 
                 // Create the UI Card
                 const card = document.createElement('div');
@@ -101,6 +111,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 img.src = objectUrl;
                 img.alt = originalName;
 
+                // Create the size info text
+                const sizeInfo = document.createElement('div');
+                sizeInfo.className = 'file-size-info';
+                sizeInfo.innerHTML = `HEIC: ${originalSizeText}<br><span class="size-highlight">New: ${newSizeText}</span>`;
+
                 const downloadLink = document.createElement('a');
                 downloadLink.href = objectUrl;
                 downloadLink.download = fullFileName;
@@ -108,24 +123,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 downloadLink.textContent = 'Download';
                 
                 card.appendChild(img);
+                card.appendChild(sizeInfo); // Add the size info to the card
                 card.appendChild(downloadLink);
 
                 completedCount++;
                 loadingText.textContent = `Converted ${completedCount} of ${selectedFiles.length}...`;
 
-                // Add to UI immediately as it finishes
                 previewContainer.appendChild(card); 
             };
 
-            // Queue system to process in fast batches
             for (let i = 0; i < selectedFiles.length; i += CONCURRENCY_LIMIT) {
-                // Grab a chunk of 4 files
                 const chunk = selectedFiles.slice(i, i + CONCURRENCY_LIMIT);
-                // Process those 4 at the exact same time and wait for them to finish
                 await Promise.all(chunk.map(file => processFile(file)));
             }
 
-            // Cleanup UI when totally done
             loadingDiv.classList.add('hidden');
             resultArea.classList.remove('hidden');
             convertBtn.textContent = `Convert ${selectedFiles.length} Image(s)`;
