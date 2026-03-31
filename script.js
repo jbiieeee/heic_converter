@@ -10,10 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadAllBtn = document.getElementById('download-all-btn');
 
     let selectedFiles = [];
-    let convertedFilesData = []; // Array to store data for the ZIP file
+    let convertedFilesData = []; 
 
     // --- Drag and Drop Logic ---
-    
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
         window.addEventListener(eventName, preventDefaults, false);
     });
@@ -50,15 +49,14 @@ document.addEventListener('DOMContentLoaded', () => {
             convertBtn.textContent = `Convert ${selectedFiles.length} Image(s)`;
             resultArea.classList.add('hidden'); 
             previewContainer.innerHTML = ''; 
-            downloadAllBtn.classList.add('hidden'); // Hide zip button on new selection
+            downloadAllBtn.classList.add('hidden'); 
         } else {
             convertBtn.disabled = true;
             convertBtn.textContent = 'Select Images to Convert';
         }
     }
 
-    // --- High-Speed Concurrent Conversion Logic ---
-
+    // --- BATCH PROCESSING LOGIC (The Fix for Speed/Freezing) ---
     convertBtn.addEventListener('click', async () => {
         if (selectedFiles.length === 0) return;
 
@@ -69,13 +67,18 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingDiv.classList.remove('hidden');
         resultArea.classList.add('hidden');
         previewContainer.innerHTML = ''; 
-        convertedFilesData = []; // Reset zip data array
+        convertedFilesData = []; 
 
         try {
             let completedCount = 0;
             loadingText.textContent = `Converted 0 of ${selectedFiles.length}...`;
 
-            const conversionPromises = selectedFiles.map(async (file) => {
+            // Max number of files to process at the exact same time
+            // 3 is the sweet spot. Too high = browser crash. Too low = slow.
+            const CONCURRENCY_LIMIT = 3; 
+
+            // Function to process a single file
+            const processFile = async (file) => {
                 const convertedBlob = await heic2any({
                     blob: file,
                     toType: targetFormat,
@@ -87,13 +90,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const originalName = file.name.split('.')[0];
                 const fullFileName = `${originalName}_converted.${extension}`;
 
-                // Save data for the ZIP file
-                convertedFilesData.push({
-                    name: fullFileName,
-                    blob: blobToUse
-                });
+                convertedFilesData.push({ name: fullFileName, blob: blobToUse });
 
-                // Create UI Card
                 const card = document.createElement('div');
                 card.className = 'image-card';
 
@@ -113,27 +111,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 completedCount++;
                 loadingText.textContent = `Converted ${completedCount} of ${selectedFiles.length}...`;
 
-                return card;
-            });
+                // Add to UI immediately as it finishes
+                previewContainer.appendChild(card); 
+            };
 
-            // Wait for all simultaneous conversions to finish
-            const completedCards = await Promise.all(conversionPromises);
-
-            // Append all to the UI Grid
-            completedCards.forEach(card => previewContainer.appendChild(card));
+            // Queue system to process in batches
+            for (let i = 0; i < selectedFiles.length; i += CONCURRENCY_LIMIT) {
+                // Grab a chunk of 3 files
+                const chunk = selectedFiles.slice(i, i + CONCURRENCY_LIMIT);
+                // Process those 3 at the same time and wait for them to finish
+                await Promise.all(chunk.map(file => processFile(file)));
+            }
 
             loadingDiv.classList.add('hidden');
             resultArea.classList.remove('hidden');
             convertBtn.textContent = `Convert ${selectedFiles.length} Image(s)`;
 
-            // Show "Download All" green button if more than 1 file was converted
             if (convertedFilesData.length > 1) {
                 downloadAllBtn.classList.remove('hidden');
             }
 
         } catch (error) {
             console.error("Error converting files:", error);
-            alert("There was an error converting. This can happen if too many massive files are processed at once.");
+            alert("There was an error. If a file is corrupted or too massive, it may fail.");
             loadingDiv.classList.add('hidden');
         } finally {
             convertBtn.disabled = false;
@@ -141,11 +141,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- ZIP and Download All Logic ---
+    // --- ZIP Logic ---
     downloadAllBtn.addEventListener('click', async () => {
         if (convertedFilesData.length === 0) return;
 
-        // Temporarily change button text so user knows it's working
         const originalText = downloadAllBtn.textContent;
         downloadAllBtn.textContent = "Zipping files...";
         downloadAllBtn.disabled = true;
@@ -153,16 +152,13 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const zip = new JSZip();
 
-            // Add all blobs to the zip file
             convertedFilesData.forEach(fileData => {
                 zip.file(fileData.name, fileData.blob);
             });
 
-            // Generate the zip file
             const zipContent = await zip.generateAsync({ type: "blob" });
-
-            // Create a temporary link to download the zip
             const zipUrl = URL.createObjectURL(zipContent);
+            
             const tempLink = document.createElement('a');
             tempLink.href = zipUrl;
             tempLink.download = "Converted_Images.zip";
@@ -170,13 +166,11 @@ document.addEventListener('DOMContentLoaded', () => {
             tempLink.click();
             document.body.removeChild(tempLink);
             
-            // Clean up the URL object memory
             URL.revokeObjectURL(zipUrl);
         } catch (error) {
-            console.error("Error creating ZIP file:", error);
+            console.error("Error creating ZIP:", error);
             alert("Failed to zip the files.");
         } finally {
-            // Restore button
             downloadAllBtn.textContent = originalText;
             downloadAllBtn.disabled = false;
         }
