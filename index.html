@@ -5,37 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HEIC to JPEG/PNG Converter</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Import the heic2any library -->
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>HEIC Converter</h1>
-        <p>Convert your iPhone or Samsung (.heic / .heif) photos to JPEG or PNG instantly.</p>
+    <div class="bg-shape shape-1"></div>
+    <div class="bg-shape shape-2"></div>
+
+    <div class="container glass-panel">
+        <h1 class="gradient-text">HEIC Converter</h1>
+        <p class="subtitle">Transform iPhone & Samsung (.heic/.heif) formats instantly.</p>
 
         <div class="upload-area" id="drop-zone">
-            <p>Drag & Drop your HEIC/HEIF files here</p>
-            <p>— or —</p>
+            <div class="upload-icon">📁</div>
+            <p>Drag & Drop your images here</p>
+            <span class="or-text">— or —</span>
             <input type="file" id="heic-input" accept=".heic, .heif" multiple />
         </div>
 
         <div class="controls">
-            <label for="format-select">Convert to:</label>
-            <select id="format-select">
+            <label for="format-select">Output Format:</label>
+            <select id="format-select" class="glass-input">
                 <option value="image/jpeg">JPEG</option>
                 <option value="image/png">PNG</option>
             </select>
         </div>
 
-        <button id="convert-btn" disabled>Convert Image</button>
+        <button id="convert-btn" class="neon-btn" disabled>Select Images to Convert</button>
 
         <div id="loading" class="hidden">
             <div class="spinner"></div>
-            <p>Converting... this might take a moment for multiple files.</p>
+            <p class="loading-text">Processing...</p>
         </div>
 
         <div id="result-area" class="hidden">
-            <h3>Converted Images:</h3>
+            <h3>Ready for Download</h3>
+            <button id="download-all-btn" class="hidden neon-btn success-btn">Download All as ZIP</button>
             <div id="preview-container" class="image-grid"></div>
         </div>
     </div>

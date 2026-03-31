@@ -3,12 +3,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const convertBtn = document.getElementById('convert-btn');
     const formatSelect = document.getElementById('format-select');
     const loadingDiv = document.getElementById('loading');
-    const loadingText = loadingDiv.querySelector('p');
+    const loadingText = loadingDiv.querySelector('.loading-text');
     const resultArea = document.getElementById('result-area');
     const previewContainer = document.getElementById('preview-container');
     const dropZone = document.getElementById('drop-zone');
+    const downloadAllBtn = document.getElementById('download-all-btn');
 
     let selectedFiles = [];
+    let convertedFilesData = []; // Array to store data for the ZIP file
 
     // --- Drag and Drop Logic ---
     
@@ -48,9 +50,10 @@ document.addEventListener('DOMContentLoaded', () => {
             convertBtn.textContent = `Convert ${selectedFiles.length} Image(s)`;
             resultArea.classList.add('hidden'); 
             previewContainer.innerHTML = ''; 
+            downloadAllBtn.classList.add('hidden'); // Hide zip button on new selection
         } else {
             convertBtn.disabled = true;
-            convertBtn.textContent = 'Convert Image';
+            convertBtn.textContent = 'Select Images to Convert';
         }
     }
 
@@ -66,12 +69,12 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingDiv.classList.remove('hidden');
         resultArea.classList.add('hidden');
         previewContainer.innerHTML = ''; 
+        convertedFilesData = []; // Reset zip data array
 
         try {
             let completedCount = 0;
             loadingText.textContent = `Converted 0 of ${selectedFiles.length}...`;
 
-            // Instead of a traditional loop, we map all files to Promises so they run at the same time
             const conversionPromises = selectedFiles.map(async (file) => {
                 const convertedBlob = await heic2any({
                     blob: file,
@@ -82,7 +85,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const blobToUse = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
                 const objectUrl = URL.createObjectURL(blobToUse);
                 const originalName = file.name.split('.')[0];
+                const fullFileName = `${originalName}_converted.${extension}`;
 
+                // Save data for the ZIP file
+                convertedFilesData.push({
+                    name: fullFileName,
+                    blob: blobToUse
+                });
+
+                // Create UI Card
                 const card = document.createElement('div');
                 card.className = 'image-card';
 
@@ -92,29 +103,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const downloadLink = document.createElement('a');
                 downloadLink.href = objectUrl;
-                downloadLink.download = `${originalName}_converted.${extension}`;
+                downloadLink.download = fullFileName;
                 downloadLink.className = 'download-btn';
                 downloadLink.textContent = 'Download';
                 
                 card.appendChild(img);
                 card.appendChild(downloadLink);
 
-                // As each individual file finishes, update the progress counter
                 completedCount++;
                 loadingText.textContent = `Converted ${completedCount} of ${selectedFiles.length}...`;
 
                 return card;
             });
 
-            // Wait for all the simultaneous processes to finish
+            // Wait for all simultaneous conversions to finish
             const completedCards = await Promise.all(conversionPromises);
 
-            // Once all are done, append them to the container
+            // Append all to the UI Grid
             completedCards.forEach(card => previewContainer.appendChild(card));
 
             loadingDiv.classList.add('hidden');
             resultArea.classList.remove('hidden');
             convertBtn.textContent = `Convert ${selectedFiles.length} Image(s)`;
+
+            // Show "Download All" green button if more than 1 file was converted
+            if (convertedFilesData.length > 1) {
+                downloadAllBtn.classList.remove('hidden');
+            }
 
         } catch (error) {
             console.error("Error converting files:", error);
@@ -122,7 +137,48 @@ document.addEventListener('DOMContentLoaded', () => {
             loadingDiv.classList.add('hidden');
         } finally {
             convertBtn.disabled = false;
-            loadingText.textContent = "Converting... this might take a moment for multiple files.";
+            loadingText.textContent = "Processing...";
+        }
+    });
+
+    // --- ZIP and Download All Logic ---
+    downloadAllBtn.addEventListener('click', async () => {
+        if (convertedFilesData.length === 0) return;
+
+        // Temporarily change button text so user knows it's working
+        const originalText = downloadAllBtn.textContent;
+        downloadAllBtn.textContent = "Zipping files...";
+        downloadAllBtn.disabled = true;
+
+        try {
+            const zip = new JSZip();
+
+            // Add all blobs to the zip file
+            convertedFilesData.forEach(fileData => {
+                zip.file(fileData.name, fileData.blob);
+            });
+
+            // Generate the zip file
+            const zipContent = await zip.generateAsync({ type: "blob" });
+
+            // Create a temporary link to download the zip
+            const zipUrl = URL.createObjectURL(zipContent);
+            const tempLink = document.createElement('a');
+            tempLink.href = zipUrl;
+            tempLink.download = "Converted_Images.zip";
+            document.body.appendChild(tempLink);
+            tempLink.click();
+            document.body.removeChild(tempLink);
+            
+            // Clean up the URL object memory
+            URL.revokeObjectURL(zipUrl);
+        } catch (error) {
+            console.error("Error creating ZIP file:", error);
+            alert("Failed to zip the files.");
+        } finally {
+            // Restore button
+            downloadAllBtn.textContent = originalText;
+            downloadAllBtn.disabled = false;
         }
     });
 });
