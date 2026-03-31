@@ -3,16 +3,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const convertBtn = document.getElementById('convert-btn');
     const formatSelect = document.getElementById('format-select');
     const loadingDiv = document.getElementById('loading');
-    const loadingText = loadingDiv.querySelector('p'); // To update progress text
+    const loadingText = loadingDiv.querySelector('p');
     const resultArea = document.getElementById('result-area');
     const previewContainer = document.getElementById('preview-container');
     const dropZone = document.getElementById('drop-zone');
 
     let selectedFiles = [];
 
-    // --- Drag and Drop Logic Fix ---
+    // --- Drag and Drop Logic ---
     
-    // Bind to the ENTIRE window so the browser never tries to download/open the file
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
         window.addEventListener(eventName, preventDefaults, false);
     });
@@ -22,7 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
         e.stopPropagation();
     }
 
-    // Highlight drop zone when dragging over it
     ['dragenter', 'dragover'].forEach(eventName => {
         dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
     });
@@ -31,19 +29,15 @@ document.addEventListener('DOMContentLoaded', () => {
         dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
     });
 
-    // Handle dropped files specifically on the drop zone
     dropZone.addEventListener('drop', (e) => {
         handleFiles(e.dataTransfer.files);
     });
 
-    // Handle files selected via the click button
     heicInput.addEventListener('change', (e) => {
         handleFiles(e.target.files);
     });
 
-    // Process the files into our array
     function handleFiles(files) {
-        // Filter out non-HEIC/HEIF files
         selectedFiles = Array.from(files).filter(file => {
             const name = file.name.toLowerCase();
             return name.endsWith('.heic') || name.endsWith('.heif');
@@ -60,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Conversion Logic ---
+    // --- High-Speed Concurrent Conversion Logic ---
 
     convertBtn.addEventListener('click', async () => {
         if (selectedFiles.length === 0) return;
@@ -68,20 +62,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const targetFormat = formatSelect.value;
         const extension = targetFormat === 'image/jpeg' ? 'jpg' : 'png';
 
-        // Set loading state
         convertBtn.disabled = true;
         loadingDiv.classList.remove('hidden');
         resultArea.classList.add('hidden');
         previewContainer.innerHTML = ''; 
 
         try {
-            // Loop through all selected files one by one
-            for (let i = 0; i < selectedFiles.length; i++) {
-                const file = selectedFiles[i];
-                
-                // Update the text so you know it's not frozen
-                loadingText.textContent = `Converting image ${i + 1} of ${selectedFiles.length}...`;
+            let completedCount = 0;
+            loadingText.textContent = `Converted 0 of ${selectedFiles.length}...`;
 
+            // Instead of a traditional loop, we map all files to Promises so they run at the same time
+            const conversionPromises = selectedFiles.map(async (file) => {
                 const convertedBlob = await heic2any({
                     blob: file,
                     toType: targetFormat,
@@ -92,7 +83,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const objectUrl = URL.createObjectURL(blobToUse);
                 const originalName = file.name.split('.')[0];
 
-                // Create the card for the image grid
                 const card = document.createElement('div');
                 card.className = 'image-card';
 
@@ -108,19 +98,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 card.appendChild(img);
                 card.appendChild(downloadLink);
-                previewContainer.appendChild(card);
-            }
 
-            // Hide loader, show results
+                // As each individual file finishes, update the progress counter
+                completedCount++;
+                loadingText.textContent = `Converted ${completedCount} of ${selectedFiles.length}...`;
+
+                return card;
+            });
+
+            // Wait for all the simultaneous processes to finish
+            const completedCards = await Promise.all(conversionPromises);
+
+            // Once all are done, append them to the container
+            completedCards.forEach(card => previewContainer.appendChild(card));
+
             loadingDiv.classList.add('hidden');
             resultArea.classList.remove('hidden');
-
-            // Reset button text
             convertBtn.textContent = `Convert ${selectedFiles.length} Image(s)`;
 
         } catch (error) {
             console.error("Error converting files:", error);
-            alert("There was an error converting one or more files. Ensure they are valid HEIC/HEIF images.");
+            alert("There was an error converting. This can happen if too many massive files are processed at once.");
             loadingDiv.classList.add('hidden');
         } finally {
             convertBtn.disabled = false;
