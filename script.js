@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let selectedFiles = [];
     let convertedFilesData = [];
+
     const CONCURRENCY_LIMIT = 2;
 
     // --- Drag & Drop ---
@@ -23,8 +24,13 @@ document.addEventListener('DOMContentLoaded', () => {
         e.stopPropagation();
     }
 
-    ['dragenter','dragover'].forEach(e => dropZone.addEventListener(e, () => dropZone.classList.add('dragover')));
-    ['dragleave','drop'].forEach(e => dropZone.addEventListener(e, () => dropZone.classList.remove('dragover')));
+    ['dragenter','dragover'].forEach(e => {
+        dropZone.addEventListener(e, () => dropZone.classList.add('dragover'));
+    });
+
+    ['dragleave','drop'].forEach(e => {
+        dropZone.addEventListener(e, () => dropZone.classList.remove('dragover'));
+    });
 
     dropZone.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
     heicInput.addEventListener('change', e => handleFiles(e.target.files));
@@ -57,19 +63,16 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingDiv.classList.remove('hidden');
         previewContainer.innerHTML = '';
         convertedFilesData = [];
-        let completed = 0;
 
-        // show immediate feedback
-        loadingText.textContent = "Starting conversion...";
+        let completed = 0;
+        loadingText.textContent = `Converted 0 of ${selectedFiles.length}...`;
 
         const queue = [...selectedFiles];
-        const running = [];
+        const workers = [];
 
         function startWorker(file) {
             return new Promise((resolve) => {
                 const worker = new Worker('worker.js');
-
-                loadingText.textContent = `Processing ${file.name}...`;
 
                 worker.postMessage({
                     file: file,
@@ -113,6 +116,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // run workers with limit
+        const running = [];
+
         for (const file of queue) {
             const p = startWorker(file);
             running.push(p);
@@ -136,10 +142,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- ZIP ---
     downloadAllBtn.addEventListener('click', async () => {
-        if (convertedFilesData.length === 0) return;
-
         const zip = new JSZip();
-        convertedFilesData.forEach(f => zip.file(f.name, f.blob));
+
+        convertedFilesData.forEach(f => {
+            zip.file(f.name, f.blob);
+        });
 
         const blob = await zip.generateAsync({ type: "blob" });
         const url = URL.createObjectURL(blob);
