@@ -1,9 +1,9 @@
 :root {
-    --primary-color: #2563eb; /* Bright Blue */
-    --hover-color: #1d4ed8;   /* Deeper Blue for hover states */
-    --bg-color: #eff6ff;      /* Very pale blue background */
+    --primary-color: #2563eb; 
+    --hover-color: #1d4ed8;   
+    --bg-color: #eff6ff;      
     --card-bg: #ffffff;
-    --text-color: #1e3a8a;    /* Dark navy blue text */
+    --text-color: #1e3a8a;    
 }
 
 body {
@@ -15,15 +15,16 @@ body {
     align-items: center;
     min-height: 100vh;
     margin: 0;
+    padding: 2rem 0; /* Added padding so it doesn't hug the top/bottom on small screens */
 }
 
 .container {
     background-color: var(--card-bg);
     padding: 2rem;
     border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(37, 99, 235, 0.15); /* Blue-tinted shadow */
-    width: 100%;
-    max-width: 450px;
+    box-shadow: 0 10px 25px rgba(37, 99, 235, 0.15); 
+    width: 90%; /* Adjusted for better mobile responsiveness */
+    max-width: 600px; /* Made slightly wider to accommodate the grid nicely */
     text-align: center;
 }
 
@@ -35,14 +36,28 @@ h1 {
 .upload-area {
     margin: 1.5rem 0;
     padding: 2rem;
-    border: 2px dashed #93c5fd; /* Soft blue dashed border */
+    border: 2px dashed #93c5fd; 
     border-radius: 8px;
-    background-color: #dbeafe; /* Light blue fill */
+    background-color: #dbeafe; 
     color: #1e40af;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+    position: relative;
+}
+
+.upload-area p {
+    margin: 0.5rem 0;
+    font-weight: 500;
+}
+
+/* When dragging a file over the zone */
+.upload-area.dragover {
+    background-color: #bfdbfe;
+    border-color: var(--primary-color);
 }
 
 input[type="file"] {
     width: 100%;
+    margin-top: 1rem;
 }
 
 .controls {
@@ -92,13 +107,6 @@ button:disabled {
     padding-top: 1rem;
 }
 
-#preview-img {
-    max-width: 100%;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
-}
-
 /* Blue Loading Spinner */
 .spinner {
     border: 4px solid #dbeafe;
@@ -113,4 +121,44 @@ button:disabled {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+/* Dynamic Image Grid Styles */
+.image-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.image-card {
+    background: #ffffff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 4px 6px rgba(37, 99, 235, 0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: transform 0.2s ease;
+}
+
+.image-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(37, 99, 235, 0.15);
+}
+
+.image-card img {
+    width: 100%;
+    height: 140px;
+    object-fit: cover; 
+    border-radius: 6px;
+    margin-bottom: 1rem;
+}
+
+.image-card .download-btn {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 0.85rem;
+    padding: 0.5rem;
 }
